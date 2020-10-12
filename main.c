@@ -89,6 +89,8 @@ static uint32_t enabled_port_mask;
 static int promiscuous_on; /**< Ports set in promiscuous mode off by default. */
 static int numa_on = 1; /**< NUMA is enabled by default. */
 
+uint32_t ipaddr_per_port[RTE_MAX_ETHPORTS];
+
 struct lcore_rx_queue {
 	uint16_t port_id;
 	uint8_t queue_id;
@@ -1765,6 +1767,16 @@ print_ethaddr(const char *name, const struct rte_ether_addr *eth_addr)
 	printf("%s%s", name, buf);
 }
 
+static void
+print_ipaddr(uint32_t ipaddr)
+{
+	int i;
+	unsigned char octet[4]  = {0,0,0,0};
+	for (i=0; i<4; i++)
+    	octet[i] = ( ipaddr >> (i*8) ) & 0xFF;
+	printf("Address: %d.%d.%d.%d\n",octet[3],octet[2],octet[1],octet[0]);
+}
+
 static int
 init_mem(unsigned nb_mbuf)
 {
@@ -1912,6 +1924,9 @@ main(int argc, char **argv)
 
 	nb_lcores = rte_lcore_count();
 
+	ipaddr_per_port[0] = RTE_IPV4(10,0,0,1);
+	ipaddr_per_port[1] = RTE_IPV4(10,1,1,1);
+
 	/* initialize all ports */
 	RTE_ETH_FOREACH_DEV(portid) {
 		struct rte_eth_conf local_port_conf = port_conf;
@@ -1925,6 +1940,14 @@ main(int argc, char **argv)
 		/* init port */
 		printf("Initializing port %d ... ", portid);
 		fflush(stdout);
+
+		if (ipaddr_per_port[portid] <= 0)
+			rte_exit(EXIT_FAILURE,
+				"Error during getting ip addrs (port %u) info: fill ipaddr_per_port variable\n",
+				portid);
+		else {
+			print_ipaddr(ipaddr_per_port[portid]);
+		}
 
 		nb_rx_queue = get_port_n_rx_queues(portid);
 		n_tx_queue = nb_lcores;
