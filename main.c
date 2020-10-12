@@ -89,6 +89,7 @@ static uint32_t enabled_port_mask;
 static int promiscuous_on; /**< Ports set in promiscuous mode off by default. */
 static int numa_on = 1; /**< NUMA is enabled by default. */
 
+/* ip addr associate to enabled ports */
 uint32_t ipaddr_per_port[RTE_MAX_ETHPORTS];
 
 struct lcore_rx_queue {
@@ -629,6 +630,20 @@ prepare_one_packet(struct rte_mbuf **pkts_in, struct acl_search_t *acl,
 	struct rte_ipv4_hdr *ipv4_hdr;
 	struct rte_mbuf *pkt = pkts_in[index];
 
+
+    	struct rte_ether_hdr *eth_hdr;
+    	uint16_t ether_type;
+    
+	eth_hdr = rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *);
+    	ether_type = eth_hdr->ether_type;
+
+    	if (ether_type == rte_cpu_to_be_16(RTE_ETHER_TYPE_ARP)) {
+		/* ARP packet */
+    		printf("arp\n");
+		rte_pktmbuf_free(pkt);
+
+    	}
+
 	if (RTE_ETH_IS_IPV4_HDR(pkt->packet_type)) {
 		ipv4_hdr = rte_pktmbuf_mtod_offset(pkt, struct rte_ipv4_hdr *,
 						sizeof(struct rte_ether_hdr));
@@ -665,7 +680,7 @@ prepare_one_packet(struct rte_mbuf **pkts_in, struct acl_search_t *acl,
 	int index)
 {
 	struct rte_mbuf *pkt = pkts_in[index];
-
+	
 	if (RTE_ETH_IS_IPV4_HDR(pkt->packet_type)) {
 		/* Fill acl structure */
 		acl->data_ipv4[acl->num_ipv4] = MBUF_IPV4_2PROTO(pkt);
@@ -1924,6 +1939,7 @@ main(int argc, char **argv)
 
 	nb_lcores = rte_lcore_count();
 
+	/* put the ip address for the respective port */
 	ipaddr_per_port[0] = RTE_IPV4(10,0,0,1);
 	ipaddr_per_port[1] = RTE_IPV4(10,1,1,1);
 
