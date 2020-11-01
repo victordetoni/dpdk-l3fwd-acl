@@ -36,6 +36,7 @@
 #include <rte_ip.h>
 #include <rte_tcp.h>
 #include <rte_udp.h>
+#include <rte_icmp.h>
 #include <rte_string_fns.h>
 #include <rte_acl.h>
 #include <rte_arp.h>
@@ -622,30 +623,6 @@ dump_ipv6_rules(struct acl6_rule *rule, int num, int extra)
 		printf("\n");
 	}
 }
-/*
-static void
-ipv4_addr_to_dot(uint32_t be_ipv4_addr, char *buf)
-{
-	uint32_t ipv4_addr;
-
-	ipv4_addr = rte_be_to_cpu_32(be_ipv4_addr);
-	sprintf(buf, "%d.%d.%d.%d", (ipv4_addr >> 24) & 0xFF,
-		(ipv4_addr >> 16) & 0xFF, (ipv4_addr >> 8) & 0xFF,
-		ipv4_addr & 0xFF);
-}
-
-
-static void
-ipv4_addr_dump(const char *what, uint32_t be_ipv4_addr)
-{
-	char buf[16];
-
-	ipv4_addr_to_dot(be_ipv4_addr, buf);
-	if (what)
-		printf("%s", what);
-	printf("%s", buf);
-}
-*/
 
 #ifdef DO_RFC_1812_CHECKS
 static inline void
@@ -660,23 +637,14 @@ prepare_one_packet(struct rte_mbuf **pkts_in, struct acl_search_t *acl,
     	struct rte_ether_hdr *eth_hdr;
 	struct rte_arp_hdr *arp_hdr;
     	uint16_t ether_type;
-	//uint32_t ip_addr;
     
 	eth_hdr = rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *);
     	ether_type = eth_hdr->ether_type;
 
+	/* Checks whether ARP request is for ip_addr of the related port_id, 
+	 * 	if so, the ARP reply will be sent */
     	if (ether_type == rte_cpu_to_be_16(RTE_ETHER_TYPE_ARP)) {
-		/* ARP packet */
                 arp_hdr = (struct rte_arp_hdr *)((char *)(eth_hdr + 1));
-		//printf("%d\n",arp_hdr->arp_data.arp_tip);
-		//printf("%d\n",ipaddr_per_port[0]);
-
-/*		ip_addr = arp_hdr->arp_data.arp_tip;
-		ipv4_addr_dump(" tip=", ip_addr);
-		printf("\n");
-		ipv4_addr_dump(" ipaddr_per_port=", ipaddr_per_port[0]);
-		printf("\n");*/
-
                 if (arp_hdr->arp_data.arp_tip == ipaddr_per_port[portid]) {
 			if (arp_hdr->arp_opcode == rte_cpu_to_be_16(RTE_ARP_OP_REQUEST)) {
 				arp_hdr->arp_opcode = rte_cpu_to_be_16(RTE_ARP_OP_REPLY);
@@ -694,7 +662,6 @@ prepare_one_packet(struct rte_mbuf **pkts_in, struct acl_search_t *acl,
 				rte_pktmbuf_free(pkt);
 			}
 		}
-
     	}
 
 	if (RTE_ETH_IS_IPV4_HDR(pkt->packet_type)) {
@@ -702,7 +669,38 @@ prepare_one_packet(struct rte_mbuf **pkts_in, struct acl_search_t *acl,
 						sizeof(struct rte_ether_hdr));
 
 		/* Check to make sure the packet is valid (RFC1812) */
-		if (is_valid_ipv4_pkt(ipv4_hdr, pkt->pkt_len) >= 0) {
+		if ((is_valid_ipv4_pkt(ipv4_hdr, pkt->pkt_len) >= 0) && \
+			(ipv4_hdr->next_proto_id == IPPROTO_ICMP)) {
+
+			struct rte_icmp_hdr *icmp_hdr;
+			icmp_hdr = (struct rte_icmp_hdr *) ((char *)ipv4_hdr +
+					      sizeof(struct rte_ipv4_hdr));
+
+			if ((ipv4_hdr->next_proto_id == IPPROTO_ICMP) && \
+					(ipv4_hdr->dst_addr == ipaddr_per_port[portid]) && \
+					(icmp_hdr->icmp_type == RTE_IP_ICMP_ECHO_REQUEST)) {
+
+
+				//printf("seq=%d\n",rte_be_to_cpu_16(icmp_hdr->icmp_seq_nb));
+
+				icmp_hdr->icmp_type = RTE_IP_ICMP_ECHO_REPLY;
+				rte_ether_addr_copy(&eth_hdr->s_addr, &eth_hdr->d_addr);
+				rte_ether_addr_copy(&ports_eth_addr[portid], &eth_hdr->s_addr);
+				rte_ether_addr_copy(&ports_eth_addr[portid], &d_addr);
+				rte_ether_addr_copy(&d_addr, &arp_hdr->arp_data.arp_sha);
+				ipv4_hdr->dst_addr = ipv4_hdr->src_addr;
+		                ipv4_hdr->src_addr = ipaddr_per_port[portid];
+
+				//send_single_packet(pkt,portid);
+				printf("icmpme\n");
+				//rte_pktmbuf_free(pkt);
+			}
+		}
+
+		/* Check to make sure the packet is valid (RFC1812) */
+		else if (is_valid_ipv4_pkt(ipv4_hdr, pkt->pkt_len) >= 0) {
+
+			printf("passando aqui\n");
 
 			/* Update time to live and header checksum */
 			--(ipv4_hdr->time_to_live);
