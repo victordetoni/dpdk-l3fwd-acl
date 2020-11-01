@@ -681,15 +681,15 @@ prepare_one_packet(struct rte_mbuf **pkts_in, struct acl_search_t *acl,
 					(icmp_hdr->icmp_type == RTE_IP_ICMP_ECHO_REQUEST)) {
 
 
-				//printf("seq=%d\n",rte_be_to_cpu_16(icmp_hdr->icmp_seq_nb));
+				printf("seq=%d\n",rte_be_to_cpu_16(icmp_hdr->icmp_seq_nb));
 
-				icmp_hdr->icmp_type = RTE_IP_ICMP_ECHO_REPLY;
+				/*icmp_hdr->icmp_type = RTE_IP_ICMP_ECHO_REPLY;
 				rte_ether_addr_copy(&eth_hdr->s_addr, &eth_hdr->d_addr);
 				rte_ether_addr_copy(&ports_eth_addr[portid], &eth_hdr->s_addr);
 				rte_ether_addr_copy(&ports_eth_addr[portid], &d_addr);
 				rte_ether_addr_copy(&d_addr, &arp_hdr->arp_data.arp_sha);
 				ipv4_hdr->dst_addr = ipv4_hdr->src_addr;
-		                ipv4_hdr->src_addr = ipaddr_per_port[portid];
+		                ipv4_hdr->src_addr = ipaddr_per_port[portid];*/
 
 				//send_single_packet(pkt,portid);
 				printf("icmpme\n");
