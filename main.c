@@ -650,7 +650,7 @@ ipv4_addr_dump(const char *what, uint32_t be_ipv4_addr)
 #ifdef DO_RFC_1812_CHECKS
 static inline void
 prepare_one_packet(struct rte_mbuf **pkts_in, struct acl_search_t *acl,
-	int index)
+	int index, int portid)
 {
 	struct rte_ipv4_hdr *ipv4_hdr;
 	struct rte_mbuf *pkt = pkts_in[index];
@@ -677,19 +677,19 @@ prepare_one_packet(struct rte_mbuf **pkts_in, struct acl_search_t *acl,
 		ipv4_addr_dump(" ipaddr_per_port=", ipaddr_per_port[0]);
 		printf("\n");*/
 
-                if (arp_hdr->arp_data.arp_tip == ipaddr_per_port[0]) {
+                if (arp_hdr->arp_data.arp_tip == ipaddr_per_port[portid]) {
 			if (arp_hdr->arp_opcode == rte_cpu_to_be_16(RTE_ARP_OP_REQUEST)) {
 				arp_hdr->arp_opcode = rte_cpu_to_be_16(RTE_ARP_OP_REPLY);
 				/* Switch src and dst data and set bonding MAC */
 				rte_ether_addr_copy(&eth_hdr->s_addr, &eth_hdr->d_addr);
-				rte_ether_addr_copy(&ports_eth_addr[0], &eth_hdr->s_addr);
+				rte_ether_addr_copy(&ports_eth_addr[portid], &eth_hdr->s_addr);
 				rte_ether_addr_copy(&arp_hdr->arp_data.arp_sha,
 						&arp_hdr->arp_data.arp_tha);
 				arp_hdr->arp_data.arp_tip = arp_hdr->arp_data.arp_sip;
-				rte_ether_addr_copy(&ports_eth_addr[0], &d_addr);
+				rte_ether_addr_copy(&ports_eth_addr[portid], &d_addr);
 				rte_ether_addr_copy(&d_addr, &arp_hdr->arp_data.arp_sha);
-				arp_hdr->arp_data.arp_sip = ipaddr_per_port[0];
-				send_single_packet(pkt,0);
+				arp_hdr->arp_data.arp_sip = ipaddr_per_port[portid];
+				send_single_packet(pkt,portid);
 			} else {
 				rte_pktmbuf_free(pkt);
 			}
@@ -752,7 +752,7 @@ prepare_one_packet(struct rte_mbuf **pkts_in, struct acl_search_t *acl,
 
 static inline void
 prepare_acl_parameter(struct rte_mbuf **pkts_in, struct acl_search_t *acl,
-	int nb_rx)
+	int nb_rx, int portid)
 {
 	int i;
 
@@ -768,12 +768,12 @@ prepare_acl_parameter(struct rte_mbuf **pkts_in, struct acl_search_t *acl,
 	for (i = 0; i < (nb_rx - PREFETCH_OFFSET); i++) {
 		rte_prefetch0(rte_pktmbuf_mtod(pkts_in[
 				i + PREFETCH_OFFSET], void *));
-		prepare_one_packet(pkts_in, acl, i);
+		prepare_one_packet(pkts_in, acl, i, portid);
 	}
 
 	/* Process left packets */
 	for (; i < nb_rx; i++)
-		prepare_one_packet(pkts_in, acl, i);
+		prepare_one_packet(pkts_in, acl, i, portid);
 }
 
 static inline void
@@ -1462,7 +1462,7 @@ main_loop(__attribute__((unused)) void *dummy)
 				struct acl_search_t acl_search;
 
 				prepare_acl_parameter(pkts_burst, &acl_search,
-					nb_rx);
+					nb_rx, portid);
 
 				if (acl_search.num_ipv4) {
 					rte_acl_classify(
