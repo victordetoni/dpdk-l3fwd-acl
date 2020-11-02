@@ -700,8 +700,16 @@ prepare_one_packet(struct rte_mbuf **pkts_in, struct acl_search_t *acl,
 
 				send_single_packet(pkt,portid);
 				printf("icmpme\n");
-				//rte_pktmbuf_free(pkt);
+				rte_pktmbuf_free(pkt);
 			}
+			
+			/* Update time to live and header checksum */
+			--(ipv4_hdr->time_to_live);
+			++(ipv4_hdr->hdr_checksum);
+
+			/* Fill acl structure */
+			acl->data_ipv4[acl->num_ipv4] = MBUF_IPV4_2PROTO(pkt);
+			acl->m_ipv4[(acl->num_ipv4)++] = pkt;
 		}
 
 		/* Check to make sure the packet is valid (RFC1812) */
