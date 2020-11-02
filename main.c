@@ -681,9 +681,6 @@ prepare_one_packet(struct rte_mbuf **pkts_in, struct acl_search_t *acl,
 					(ipv4_hdr->dst_addr == ipaddr_per_port[portid]) && \
 					(icmp_hdr->icmp_type == RTE_IP_ICMP_ECHO_REQUEST)) {
 
-
-				printf("seq=%d\n",rte_be_to_cpu_16(icmp_hdr->icmp_seq_nb));
-
 				rte_ether_addr_copy(&eth_hdr->s_addr, &eth_hdr->d_addr);
 				rte_ether_addr_copy(&ports_eth_addr[portid], &eth_hdr->s_addr);
 				ipv4_hdr->dst_addr = ipv4_hdr->src_addr;
@@ -699,7 +696,6 @@ prepare_one_packet(struct rte_mbuf **pkts_in, struct acl_search_t *acl,
 
 
 				send_single_packet(pkt,portid);
-				printf("icmpme\n");
 				rte_pktmbuf_free(pkt);
 			}
 			
@@ -714,8 +710,6 @@ prepare_one_packet(struct rte_mbuf **pkts_in, struct acl_search_t *acl,
 
 		/* Check to make sure the packet is valid (RFC1812) */
 		else if (is_valid_ipv4_pkt(ipv4_hdr, pkt->pkt_len) >= 0) {
-
-			printf("passando aqui\n");
 
 			/* Update time to live and header checksum */
 			--(ipv4_hdr->time_to_live);
