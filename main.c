@@ -787,7 +787,27 @@ prepare_acl_parameter(struct rte_mbuf **pkts_in, struct acl_search_t *acl,
 static inline void
 send_one_packet(struct rte_mbuf *m, uint32_t res)
 {
+	struct rte_ipv4_hdr *ipv4_hdr;
+    	struct rte_ether_hdr *eth_hdr;
+
+	void *hw_port0,*hw_port1;
+
+	eth_hdr = rte_pktmbuf_mtod(m, struct rte_ether_hdr *);
+
 	if (likely((res & ACL_DENY_SIGNATURE) == 0 && res != 0)) {
+
+		if ((res - FWD_PORT_SHIFT) == 0) {
+			hw_port0 = &eth_hdr->d_addr.addr_bytes[0];
+			*((uint64_t *)hw_port0) = 0xcfcb7d290c00 + ((uint64_t)0 << 40);
+			rte_ether_addr_copy(&ports_eth_addr[res - FWD_PORT_SHIFT], &eth_hdr->s_addr);
+		}
+
+		if ((res - FWD_PORT_SHIFT) == 1) {
+			hw_port1 = &eth_hdr->d_addr.addr_bytes[0];
+			*((uint64_t *)hw_port1) = 0x78f308290c00 + ((uint64_t)0 << 40);
+			rte_ether_addr_copy(&ports_eth_addr[res - FWD_PORT_SHIFT], &eth_hdr->s_addr);
+		}
+
 		/* forward packets */
 		send_single_packet(m,
 			(uint8_t)(res - FWD_PORT_SHIFT));
