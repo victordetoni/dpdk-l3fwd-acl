@@ -672,6 +672,7 @@ prepare_one_packet(struct rte_mbuf **pkts_in, struct acl_search_t *acl,
 		if ((is_valid_ipv4_pkt(ipv4_hdr, pkt->pkt_len) >= 0) && \
 			(ipv4_hdr->next_proto_id == IPPROTO_ICMP)) {
 
+			uint32_t cksum;
 			struct rte_icmp_hdr *icmp_hdr;
 			icmp_hdr = (struct rte_icmp_hdr *) ((char *)ipv4_hdr +
 					      sizeof(struct rte_ipv4_hdr));
@@ -681,17 +682,23 @@ prepare_one_packet(struct rte_mbuf **pkts_in, struct acl_search_t *acl,
 					(icmp_hdr->icmp_type == RTE_IP_ICMP_ECHO_REQUEST)) {
 
 
-				//printf("seq=%d\n",rte_be_to_cpu_16(icmp_hdr->icmp_seq_nb));
+				printf("seq=%d\n",rte_be_to_cpu_16(icmp_hdr->icmp_seq_nb));
 
-				icmp_hdr->icmp_type = RTE_IP_ICMP_ECHO_REPLY;
 				rte_ether_addr_copy(&eth_hdr->s_addr, &eth_hdr->d_addr);
 				rte_ether_addr_copy(&ports_eth_addr[portid], &eth_hdr->s_addr);
-				rte_ether_addr_copy(&ports_eth_addr[portid], &d_addr);
-				rte_ether_addr_copy(&d_addr, &arp_hdr->arp_data.arp_sha);
 				ipv4_hdr->dst_addr = ipv4_hdr->src_addr;
-		                ipv4_hdr->src_addr = ipaddr_per_port[portid];
+				ipv4_hdr->src_addr = ipaddr_per_port[portid];
 
-				//send_single_packet(pkt,portid);
+				icmp_hdr->icmp_type = RTE_IP_ICMP_ECHO_REPLY;
+				cksum = ~icmp_hdr->icmp_cksum & 0xffff;
+				cksum += ~htons(RTE_IP_ICMP_ECHO_REQUEST << 8) & 0xffff;
+				cksum += htons(RTE_IP_ICMP_ECHO_REPLY << 8);
+				cksum = (cksum & 0xffff) + (cksum >> 16);
+				cksum = (cksum & 0xffff) + (cksum >> 16);
+				icmp_hdr->icmp_cksum = ~cksum;
+
+
+				send_single_packet(pkt,portid);
 				printf("icmpme\n");
 				//rte_pktmbuf_free(pkt);
 			}
