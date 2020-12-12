@@ -1,3 +1,3 @@
 # dpdk-l3fwd-acl-stateful
 
-dpdk l3fwd-acl based with arp request and icmp request supported
+dpdk l3fwd-acl with arp reply and icmp echo reply supported
